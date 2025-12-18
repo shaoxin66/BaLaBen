@@ -7,21 +7,27 @@ export interface Character {
   hairColor: string;
   clothing: string;
   identity: string;
+  pastBackground: string; 
+  presentStatus: string;  
+  personality: string;    
   description: string;
-  role: 'main' | 'other' | 'creature';
-  visualStates: string[];
-  sourceQuote?: string; // 对应的原文片段
+  role: 'main' | 'other' | 'creature' | 'crowd' | 'mob'; // 细化角色权重
+  category: 'human' | 'monster' | 'animal' | 'professional' | 'generic' | 'crowd'; // 新增角色类别
+  visualStates: string[]; // 动态形态描述，如：Q版、浑身是伤
+  sourceQuote?: string; 
 }
 
 export interface Scene {
   id: string;
   name: string;
+  episode?: string;       
+  oneSentence?: string;   
   type: '室内' | '室外' | '其他';
   time: string;
   angle: string;
   description: string;
   visualStates: string[];
-  sourceQuote?: string; // 对应的原文片段
+  sourceQuote?: string; 
 }
 
 export interface Prop {
@@ -29,7 +35,7 @@ export interface Prop {
   name: string;
   description: string;
   usage: string;
-  sourceQuote?: string; // 对应的原文片段
+  sourceQuote?: string;
 }
 
 export interface Lighting {
@@ -39,7 +45,7 @@ export interface Lighting {
   shape: string;
   mood: string;
   description: string;
-  sourceQuote?: string; // 对应的原文片段
+  sourceQuote?: string;
 }
 
 export interface Skill {
@@ -48,7 +54,7 @@ export interface Skill {
   owner: string;
   description: string;
   effect: string;
-  sourceQuote?: string; // 对应的原文片段
+  sourceQuote?: string;
 }
 
 export interface Relationship {

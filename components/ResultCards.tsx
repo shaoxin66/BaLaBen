@@ -1,263 +1,212 @@
 
 import React, { useState } from 'react';
 import { Character, Scene, Prop, Lighting, Skill } from '../types';
-import { User, MapPin, Box, Lightbulb, Zap, Trash2, Target, Hash, Info, Sparkles, Quote, ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
-import { EditableList } from './EditableList';
+import { 
+  User, MapPin, Box, Lightbulb, Zap, Target, Sparkles, GripVertical, 
+  ChevronDown, ArrowUpRight, History, PlayCircle, BookOpen, Quote, 
+  SwitchCamera, Ghost, Dog, Users as UsersIcon, HardHat, ShieldAlert, HeartPulse
+} from 'lucide-react';
+import { motion } from 'framer-motion';
 
-interface ControlProps {
-  onDelete?: () => void;
-  onLocate?: () => void;
-  isActiveHighlight?: boolean;
-}
-
-const CardControls: React.FC<ControlProps> = ({ onDelete, onLocate, isActiveHighlight }) => (
-  <div className={`flex items-center gap-1 bg-slate-950/80 backdrop-blur-xl rounded-xl p-1 border border-white/5 transition-all duration-500 shadow-2xl ${isActiveHighlight ? 'opacity-100 translate-y-0' : 'opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0'}`}>
-    {onLocate && (
-      <button 
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onLocate(); }}
-        className={`p-1.5 rounded-lg transition-all flex items-center gap-1.5 text-[10px] font-bold ${isActiveHighlight ? 'bg-amber-500 text-slate-900' : 'text-slate-400 hover:text-white hover:bg-violet-600'}`}
-      >
-        <Target className="w-3.5 h-3.5" /> {isActiveHighlight ? '已定位' : '定位原文'}
-      </button>
-    )}
-    <div className="w-px h-4 bg-white/10 mx-0.5" />
-    {onDelete && (
-      <button 
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
-        className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/20 rounded-lg transition-all"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
-    )}
-  </div>
-);
-
-const SourceQuotePreview: React.FC<{ quote?: string }> = ({ quote }) => {
-  const [expanded, setExpanded] = useState(false);
-  if (!quote) return null;
-
-  return (
-    <div className="mt-4 pt-4 border-t border-white/5">
-        <button 
-            onClick={() => setExpanded(!expanded)}
-            className="flex items-center justify-between w-full text-[9px] uppercase font-black tracking-widest text-slate-500 hover:text-slate-300 transition-colors"
-        >
-            <span className="flex items-center gap-2"><Quote className="w-3 h-3 text-violet-500" /> 证据摘录</span>
-            {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-        </button>
-        {expanded && (
-            <div className="mt-2 bg-slate-950/80 p-3 rounded-xl border border-white/5 text-[11px] text-slate-400 leading-relaxed italic animate-in fade-in slide-in-from-top-1 duration-300">
-                “{quote}”
-            </div>
-        )}
-    </div>
-  );
+const getCategoryIcon = (category: string) => {
+  switch (category) {
+    case 'monster': return Ghost;
+    case 'animal': return Dog;
+    case 'professional': return HardHat;
+    case 'crowd': return UsersIcon;
+    default: return User;
+  }
 };
 
-const CardWrapper: React.FC<{ 
+const getCategoryColor = (category: string) => {
+  switch (category) {
+    case 'monster': return 'text-red-400 bg-red-400/10 border-red-400/20';
+    case 'professional': return 'text-blue-400 bg-blue-400/10 border-blue-400/20';
+    case 'crowd': return 'text-amber-400 bg-amber-400/10 border-amber-400/20';
+    default: return 'text-slate-400 bg-white/5 border-white/10';
+  }
+};
+
+interface CardWrapperProps {
     children: React.ReactNode; 
-    colorClass: string; 
-    isMain?: boolean; 
     title: string; 
     subtitle: string; 
     icon: any; 
-    controls: React.ReactNode;
     sourceQuote?: string;
-    isActiveHighlight?: boolean;
-}> = ({ children, colorClass, isMain, title, subtitle, icon: Icon, controls, sourceQuote, isActiveHighlight }) => {
-  const themes: Record<string, string> = {
-    violet: 'border-violet-500/20 hover:border-violet-500/50 bg-violet-950/10 shadow-violet-900/5',
-    blue: 'border-blue-500/20 hover:border-blue-500/50 bg-blue-950/10 shadow-blue-900/5',
-    emerald: 'border-emerald-500/20 hover:border-emerald-500/50 bg-emerald-950/10 shadow-emerald-900/5',
-    amber: 'border-amber-500/20 hover:border-amber-500/50 bg-amber-950/10 shadow-amber-900/5',
-    pink: 'border-pink-500/20 hover:border-pink-500/50 bg-pink-950/10 shadow-pink-900/5',
-  };
+    isMain?: boolean;
+    onLocate?: () => void;
+    category?: string;
+}
 
-  const textColors: Record<string, string> = {
-    violet: 'text-violet-400',
-    blue: 'text-blue-400',
-    emerald: 'text-emerald-400',
-    amber: 'text-amber-400',
-    pink: 'text-pink-400',
-  };
+const CardWrapper: React.FC<CardWrapperProps> = ({ children, title, subtitle, icon: Icon, sourceQuote, isMain, onLocate, category }) => {
+  const [showQuote, setShowQuote] = useState(false);
 
   return (
     <div className={`
-      group relative border rounded-2xl p-6 transition-all duration-500 flex flex-col h-full overflow-hidden backdrop-blur-sm
-      ${themes[colorClass] || 'border-slate-800 bg-slate-900/20'}
-      ${isMain ? 'ring-2 ring-violet-500/20' : ''}
-      ${isActiveHighlight ? 'border-amber-500/60 ring-4 ring-amber-500/10 shadow-[0_0_50px_rgba(251,191,36,0.15)] bg-slate-900/60' : 'hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.6)] hover:-translate-y-1'}
+      relative p-6 lg:p-10 rounded-4xl lg:rounded-5xl border transition-all duration-500 flex flex-col h-full overflow-hidden bg-brand-dark/40 border-white/5 hover:border-brand-neon/30 group cursor-pointer
+      ${isMain ? 'ring-2 ring-brand-violet/40 shadow-[0_0_40px_rgba(124,58,237,0.1)]' : 'hover:shadow-[0_0_40px_rgba(217,253,80,0.05)]'}
     `}>
-      <div className="absolute top-4 left-4 z-40 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing text-slate-700">
-        <GripVertical className="w-4 h-4" />
+      <div className="absolute top-1/2 left-3 -translate-y-1/2 z-40 opacity-0 group-hover:opacity-40 transition-opacity cursor-grab active:cursor-grabbing p-2">
+        <GripVertical className="w-5 h-5 text-brand-neon" />
       </div>
 
-      <div className="absolute top-4 right-4 z-30">
-        {controls}
-      </div>
-      
-      <div className="mb-6 pr-10">
-        <div className="flex items-center gap-3 mb-1.5">
-          <div className={`p-2 rounded-xl bg-slate-950 border border-white/5 ${textColors[colorClass]}`}>
-             <Icon className="w-4.5 h-4.5" />
+      <div className="flex items-center justify-between mb-6 lg:mb-10 pl-4 lg:pl-6">
+        <div className="flex items-center gap-4 lg:gap-5">
+          <div className={`w-12 h-12 lg:w-16 lg:h-16 rounded-2xl lg:rounded-3xl flex items-center justify-center bg-black border border-white/5 shadow-2xl transition-all duration-300 ${isMain ? 'text-brand-violet ring-1 ring-brand-violet/50' : 'text-slate-400 group-hover:text-brand-neon'}`}>
+            <Icon className="w-6 h-6 lg:w-8 lg:h-8" />
           </div>
-          <h3 className="text-lg font-black text-slate-50 truncate tracking-tight">{title}</h3>
+          <div className="flex flex-col">
+            <h3 className="text-xl lg:text-3xl font-black text-white tracking-tighter leading-none uppercase italic">{title}</h3>
+            <div className="flex items-center gap-2 mt-2">
+              {category && (
+                <span className={`px-2 py-0.5 rounded-md text-[7px] font-black uppercase tracking-widest border ${getCategoryColor(category)}`}>
+                  {category}
+                </span>
+              )}
+              <span className="text-[8px] lg:text-[10px] text-slate-500 uppercase font-black tracking-[0.4em] italic truncate max-w-[150px]">
+                 {subtitle}
+              </span>
+            </div>
+          </div>
         </div>
-        <span className="text-[10px] text-slate-500 uppercase font-black tracking-[0.2em] block truncate ml-11">{subtitle}</span>
+        
+        {onLocate && (
+          <motion.button 
+            whileHover={{ scale: 1.1, rotate: 90 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={(e) => { e.stopPropagation(); onLocate(); }}
+            className="p-3 bg-brand-neon/10 text-brand-neon hover:bg-brand-neon hover:text-brand-dark rounded-2xl transition-all border border-brand-neon/20"
+          >
+            <Target className="w-4 h-4" />
+          </motion.button>
+        )}
       </div>
       
-      <div className="flex-grow flex flex-col gap-5">
+      <div className="flex-grow flex flex-col gap-6 lg:gap-8 pl-4 lg:pl-6">
         {children}
       </div>
       
-      <SourceQuotePreview quote={sourceQuote} />
-      
-      {isMain && (
-        <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-violet-500 to-indigo-600 shadow-[2px_0_10px_rgba(124,58,237,0.3)]" />
+      {sourceQuote && (
+        <div className="mt-8 lg:mt-12 pt-6 lg:pt-8 border-t border-white/5 pl-4 lg:pl-6">
+           <button onClick={(e) => { e.stopPropagation(); setShowQuote(!showQuote); }} className="flex items-center justify-between w-full text-[9px] font-black uppercase tracking-[0.3em] text-slate-600 hover:text-brand-neon transition-colors group/btn">
+             <span className="flex items-center gap-2 italic">原文设定锚点 <ArrowUpRight className="w-3 h-3 group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" /></span>
+             <ChevronDown className={`w-4 h-4 transition-transform duration-500 ${showQuote ? 'rotate-180 text-brand-neon' : ''}`} />
+           </button>
+           {showQuote && (
+             <motion.div 
+               initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+               className="mt-4 p-5 rounded-3xl bg-black/60 border border-brand-neon/10 italic text-[13px] text-slate-300 leading-relaxed font-medium"
+             >
+               “{sourceQuote}”
+             </motion.div>
+           )}
+        </div>
       )}
-      {isActiveHighlight && (
-          <div className="absolute top-0 right-0 p-2">
-              <span className="flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500 shadow-lg"></span>
-              </span>
-          </div>
+
+      {isMain && (
+        <div className="absolute top-0 right-0 p-4 lg:p-6 pointer-events-none">
+          <div className="px-4 py-2 bg-brand-violet text-white rounded-full text-[9px] font-black uppercase tracking-[0.2em] shadow-xl border border-white/20">主角小传已收录</div>
+        </div>
       )}
     </div>
   );
 };
 
-interface BaseCardProps {
-    onDelete?: (id: string) => void;
-    onLocate?: (q: string) => void;
-    activeHighlightQuote?: string | null;
-}
+export const CharacterCard: React.FC<{ data: Character; onLocate?: () => void }> = ({ data, onLocate }) => (
+    <CardWrapper title={data.name} subtitle={data.identity || '未知角色'} icon={getCategoryIcon(data.category)} category={data.category} sourceQuote={data.sourceQuote} isMain={data.role === 'main'} onLocate={onLocate}>
+      <div className="space-y-6">
+        {/* 动态视觉状态栏 */}
+        {data.visualStates && data.visualStates.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {data.visualStates.map((state, i) => {
+              const isDanger = state.includes('伤') || state.includes('血') || state.includes('负');
+              const isSpecial = state.includes('Q版') || state.includes('形态') || state.includes('化');
+              return (
+                <span key={i} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${
+                  isDanger ? 'bg-red-500/20 border-red-500/40 text-red-400 animate-pulse' : 
+                  isSpecial ? 'bg-brand-neon border-brand-neon text-brand-dark shadow-[0_0_15px_rgba(217,253,80,0.4)]' : 
+                  'bg-white/5 border-white/10 text-slate-400'
+                }`}>
+                  {isDanger && <ShieldAlert className="w-3 h-3" />}
+                  {isSpecial && <Sparkles className="w-3 h-3" />}
+                  {!isDanger && !isSpecial && <HeartPulse className="w-3 h-3" />}
+                  {state}
+                </span>
+              );
+            })}
+          </div>
+        )}
 
-export const CharacterCard: React.FC<{ data: Character; onUpdate?: (c: Character) => void } & BaseCardProps> = ({ data, onUpdate, onDelete, onLocate, activeHighlightQuote }) => {
-  const isMain = data.role === 'main';
-  const isActive = activeHighlightQuote === data.sourceQuote;
+        <div className="relative grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 rounded-3xl bg-white/[0.02] border border-white/5 group-hover:border-white/10 transition-colors">
+            <div className="flex items-center gap-2 mb-2 text-[8px] font-black text-slate-500 uppercase tracking-widest">
+              <History className="w-3 h-3" /> 背景说明
+            </div>
+            <p className="text-[12px] text-slate-400 leading-relaxed font-semibold">{data.pastBackground || '暂无详细背景记录'}</p>
+          </div>
 
-  return (
-    <CardWrapper 
-      colorClass="violet" 
-      isMain={isMain} 
-      title={data.name} 
-      subtitle={data.identity || '角色身份未定'} 
-      icon={User}
-      sourceQuote={data.sourceQuote}
-      isActiveHighlight={isActive}
-      controls={<CardControls onDelete={onDelete ? () => onDelete(data.id) : undefined} onLocate={onLocate && data.sourceQuote ? () => onLocate(data.sourceQuote!) : undefined} isActiveHighlight={isActive} />}
-    >
-      <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 space-y-3">
-        <div className="flex flex-wrap gap-2">
-          {[data.gender, data.hairstyle, data.clothing].filter(Boolean).map((tag, i) => (
-            <span key={i} className="px-2.5 py-1 rounded-lg bg-slate-900/80 text-[10px] text-slate-400 border border-slate-800 font-bold uppercase tracking-wider shadow-sm">
-              {tag}
-            </span>
-          ))}
+          <div className="p-4 rounded-3xl bg-brand-violet/5 border border-brand-violet/10 group-hover:bg-brand-violet/10 transition-colors">
+            <div className="flex items-center gap-2 mb-2 text-[8px] font-black text-brand-violet uppercase tracking-widest">
+              <PlayCircle className="w-3 h-3" /> 当前现状
+            </div>
+            <p className="text-[12px] text-white leading-relaxed font-bold tracking-tight">{data.presentStatus || '活跃中'}</p>
+          </div>
         </div>
-        <p className="text-[12px] text-slate-400 italic leading-relaxed line-clamp-3 font-medium opacity-80">“{data.description}”</p>
+        
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {data.personality?.split(/[，、]/).map((trait, i) => (
+              <span key={i} className="px-3 py-1 rounded-lg bg-slate-800/50 border border-white/5 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                {trait}
+              </span>
+            ))}
+          </div>
+          <div className="p-4 bg-black/20 rounded-2xl border-l-2 border-brand-neon/20">
+             <p className="text-[11px] text-slate-500 font-medium italic">"{data.description}"</p>
+          </div>
+        </div>
       </div>
-      <EditableList 
-        items={data.visualStates || []} 
-        onUpdate={(items) => onUpdate?.({ ...data, visualStates: items })} 
-        title="视觉/动作特征" 
-        colorClass="violet" 
-      />
     </CardWrapper>
-  );
-};
+);
 
-export const SceneCard: React.FC<{ data: Scene; onUpdate?: (s: Scene) => void } & BaseCardProps> = ({ data, onUpdate, onDelete, onLocate, activeHighlightQuote }) => {
-  const isActive = activeHighlightQuote === data.sourceQuote;
-  
-  return (
-    <CardWrapper 
-        colorClass="blue" 
-        title={data.name} 
-        subtitle={`${data.type} · ${data.time}`} 
-        icon={MapPin}
-        sourceQuote={data.sourceQuote}
-        isActiveHighlight={isActive}
-        controls={<CardControls onDelete={onDelete ? () => onDelete(data.id) : undefined} onLocate={onLocate && data.sourceQuote ? () => onLocate(data.sourceQuote!) : undefined} isActiveHighlight={isActive} />}
-    >
-        <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 space-y-3">
-        <div className="flex items-center gap-2 text-[10px] font-black text-blue-400/90 uppercase tracking-[0.2em]">
-            <Hash className="w-3.5 h-3.5" /> 机位建议: {data.angle || '默认角度'}
+export const SceneCard: React.FC<{ data: Scene; onLocate?: () => void }> = ({ data, onLocate }) => (
+    <CardWrapper title={data.name} subtitle={`${data.episode ? `第 ${data.episode} 场` : '独立场次'} · ${data.type || '通用'}`} icon={MapPin} sourceQuote={data.sourceQuote} onLocate={onLocate}>
+        <div className="space-y-6">
+          {data.oneSentence && (
+            <motion.div whileHover={{ scale: 1.01 }} className="bg-brand-neon/10 border border-brand-neon/30 p-5 rounded-4xl relative overflow-hidden group/sentence">
+              <div className="flex items-center gap-2 mb-1 text-[8px] font-black text-brand-neon uppercase tracking-widest relative z-10">
+                <BookOpen className="w-3 h-3" /> 核心剧情钩子
+              </div>
+              <p className="text-[15px] text-white font-black italic tracking-tight leading-tight relative z-10">“{data.oneSentence}”</p>
+            </motion.div>
+          )}
+          <div className="bg-black/40 p-6 rounded-4xl border border-white/5">
+             <p className="text-[13px] text-slate-400 leading-relaxed font-bold opacity-90">{data.description}</p>
+          </div>
         </div>
-        <p className="text-[12px] text-slate-400 leading-relaxed italic line-clamp-3 opacity-80">{data.description}</p>
-        </div>
-        <EditableList 
-        items={data.visualStates || []} 
-        onUpdate={(items) => onUpdate?.({ ...data, visualStates: items })} 
-        title="分镜/美术细节" 
-        colorClass="blue" 
-        />
     </CardWrapper>
-  );
-}
+);
 
-export const PropCard: React.FC<{ data: Prop } & BaseCardProps> = ({ data, onDelete, onLocate, activeHighlightQuote }) => {
-  const isActive = activeHighlightQuote === data.sourceQuote;
-  
-  return (
-    <CardWrapper 
-        colorClass="emerald" 
-        title={data.name} 
-        subtitle={`设定用途: ${data.usage || '关键道具'}`} 
-        icon={Box}
-        sourceQuote={data.sourceQuote}
-        isActiveHighlight={isActive}
-        controls={<CardControls onDelete={onDelete ? () => onDelete(data.id) : undefined} onLocate={onLocate && data.sourceQuote ? () => onLocate(data.sourceQuote!) : undefined} isActiveHighlight={isActive} />}
-    >
-        <div className="bg-slate-950/40 p-5 rounded-2xl border border-white/5 flex-grow shadow-inner">
-        <p className="text-[12px] text-slate-400 italic leading-relaxed line-clamp-8 opacity-90">{data.description}</p>
+export const PropCard: React.FC<{ data: Prop; onLocate?: () => void }> = ({ data, onLocate }) => (
+    <CardWrapper title={data.name} subtitle="关键设定物品" icon={Box} sourceQuote={data.sourceQuote} onLocate={onLocate}>
+        <div className="bg-black/60 p-6 rounded-4xl border border-brand-neon/10 flex items-start gap-4">
+          <p className="text-slate-300 text-[13px] leading-loose font-semibold italic">{data.description}</p>
         </div>
     </CardWrapper>
-  );
-}
+);
 
-export const LightingCard: React.FC<{ data: Lighting } & BaseCardProps> = ({ data, onDelete, onLocate, activeHighlightQuote }) => {
-  const isActive = activeHighlightQuote === data.sourceQuote;
-  
-  return (
-    <CardWrapper 
-        colorClass="amber" 
-        title={data.type} 
-        subtitle={data.mood || '光影调性'} 
-        icon={Lightbulb}
-        sourceQuote={data.sourceQuote}
-        isActiveHighlight={isActive}
-        controls={<CardControls onDelete={onDelete ? () => onDelete(data.id) : undefined} onLocate={onLocate && data.sourceQuote ? () => onLocate(data.sourceQuote!) : undefined} isActiveHighlight={isActive} />}
-    >
-        <div className="bg-slate-950/40 p-5 rounded-2xl border border-white/5 space-y-4 flex-grow">
-        <div className="inline-flex items-center gap-2 bg-amber-500/10 text-amber-400 px-3 py-1.5 rounded-xl border border-amber-500/20 text-[10px] font-black uppercase tracking-widest">
-            <Sparkles className="w-3.5 h-3.5" /> 主色调: {data.color}
-        </div>
-        <p className="text-[12px] text-slate-400 italic leading-relaxed line-clamp-6 opacity-90">{data.description}</p>
+export const LightingCard: React.FC<{ data: Lighting; onLocate?: () => void }> = ({ data, onLocate }) => (
+    <CardWrapper title={data.type} subtitle={data.mood || '光影基调'} icon={Lightbulb} sourceQuote={data.sourceQuote} onLocate={onLocate}>
+        <div className="bg-white/[0.03] p-6 rounded-4xl border border-white/5 space-y-4">
+          <p className="text-[13px] text-slate-400 font-bold leading-relaxed italic opacity-80 border-l-2 border-brand-neon/30 pl-4">{data.description}</p>
         </div>
     </CardWrapper>
-  );
-}
+);
 
-export const SkillCard: React.FC<{ data: Skill } & BaseCardProps> = ({ data, onDelete, onLocate, activeHighlightQuote }) => {
-  const isActive = activeHighlightQuote === data.sourceQuote;
-  
-  return (
-    <CardWrapper 
-        colorClass="pink" 
-        title={data.name} 
-        subtitle={`所属角色: ${data.owner}`} 
-        icon={Zap}
-        sourceQuote={data.sourceQuote}
-        isActiveHighlight={isActive}
-        controls={<CardControls onDelete={onDelete ? () => onDelete(data.id) : undefined} onLocate={onLocate && data.sourceQuote ? () => onLocate(data.sourceQuote!) : undefined} isActiveHighlight={isActive} />}
-    >
-        <div className="bg-slate-950/40 p-5 rounded-2xl border border-white/5 space-y-3 flex-grow">
-        <p className="text-[13px] text-pink-300 font-black tracking-tight leading-snug">{data.effect}</p>
-        <div className="w-10 h-0.5 bg-gradient-to-r from-pink-500 to-transparent rounded-full" />
-        <p className="text-[12px] text-slate-500 italic leading-relaxed line-clamp-6">{data.description}</p>
+export const SkillCard: React.FC<{ data: Skill; onLocate?: () => void }> = ({ data, onLocate }) => (
+    <CardWrapper title={data.name} subtitle={`核心设定`} icon={Zap} sourceQuote={data.sourceQuote} onLocate={onLocate}>
+        <div className="p-6 bg-brand-violet/10 rounded-4xl border border-brand-violet/20">
+          <p className="text-[14px] text-white font-black leading-relaxed tracking-tight">{data.description}</p>
         </div>
     </CardWrapper>
-  );
-}
+);

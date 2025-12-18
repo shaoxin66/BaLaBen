@@ -1,36 +1,12 @@
 
 import { AnalysisResult, Character, Scene, Prop, Lighting, Skill, Relationship } from "../types";
 
-// Helper to generate random IDs
-const generateId = () => Math.random().toString(36).substr(2, 9);
+const generateId = () => Math.random().toString(36).substring(2, 9);
 
-// Helper to extract visual states from text (looking for numbered lists or bracketed text)
-const extractVisualStates = (text: string): string[] => {
-  const visuals: string[] = [];
-  
-  // Pattern 1: Numbered lists like "1. Close up 2. Wide shot"
-  const numberedRegex = /(?:^|\s)(\d+[.、]\s*[^\d\n]+)/g;
-  let match;
-  while ((match = numberedRegex.exec(text)) !== null) {
-    visuals.push(match[1].trim());
-  }
-
-  // Pattern 2: Bracketed text like "【Close up】" if no numbered list found
-  if (visuals.length === 0) {
-    const bracketRegex = /[【\[]([^】\]]+)[】\]]/g;
-    while ((match = bracketRegex.exec(text)) !== null) {
-        // Filter out common non-visual tags
-        if (!['场景', '时间', '角色'].includes(match[1])) {
-            visuals.push(match[1].trim());
-        }
-    }
-  }
-
-  return visuals;
-};
+// 扩展职业与泛称关键词
+const genericKeywords = ['护工', '医生', '警察', '路人', '群众', '老人', '小孩', '怪物', '生物', '守卫', '保镖', '管家', '司机'];
 
 export const analyzeScriptLocal = async (text: string): Promise<AnalysisResult> => {
-  // Simulate a short processing delay for UX
   await new Promise(resolve => setTimeout(resolve, 800));
 
   const lines = text.split('\n');
@@ -38,152 +14,84 @@ export const analyzeScriptLocal = async (text: string): Promise<AnalysisResult> 
   const scenes: Scene[] = [];
   const props: Prop[] = [];
   const lighting: Lighting[] = [];
+  const relationships: Relationship[] = [];
   
-  // Temporary storage sets
-  const characterNames = new Set<string>();
-  
-  let currentScene: Scene | null = null;
-  let currentBuffer = ""; // To store description text
+  const characterNames = new Map<string, Character>();
+  const sceneCharacterMap = new Map<string, Set<string>>();
 
-  // Regex Patterns
-  const sceneStartRegex = /^(?:第[0-9一二三四五六七八九十]+场|SCENE|EXT\.|INT\.|场景|地点)[：:]?\s*(.*)/i;
-  const characterIntroRegex = /^(?:角色|人物|Name)[：:]\s*([^\s：:]+)/i;
-  const dialogueRegex = /^([^\s：:("]+)[：:]\s*(.*)/; // Simple "Name: Dialogue"
-  
-  // Simple Parsing Loop
+  let currentScene: Scene | null = null;
+  let currentEpisode: string = "";
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
 
-    // 1. Detect Scenes
-    const sceneMatch = line.match(sceneStartRegex);
-    if (sceneMatch || line.startsWith('【') && line.includes('场')) {
-      // Save previous scene description/visuals if exists
-      if (currentScene) {
-          currentScene.visualStates = extractVisualStates(currentBuffer);
-      }
-
-      const sceneName = sceneMatch ? sceneMatch[1] || line : line.replace(/[【】]/g, '');
+    // 1. 识别场景
+    const sceneMatch = line.match(/^(?:第?\s*\d+\s*场|SCENE|\d+[\s-]+\d+|场景|地点)\s*(.*)/i);
+    if (sceneMatch) {
       currentScene = {
         id: generateId(),
-        name: sceneName,
-        type: line.includes('内') || line.includes('INT') ? '室内' : '室外',
-        time: line.includes('夜') ? '夜' : '日',
+        name: sceneMatch[1] || `场次 ${scenes.length + 1}`,
+        episode: currentEpisode,
+        oneSentence: "本地扫描：识别场次转换",
+        type: line.includes('内') ? '室内' : '室外',
+        time: line.includes('日') ? '日' : '夜',
         angle: '默认',
         description: '',
         visualStates: [],
-        sourceQuote: line // 记录来源行用于定位
+        sourceQuote: line
       };
       scenes.push(currentScene);
-      currentBuffer = "";
+      sceneCharacterMap.set(currentScene.id, new Set());
       continue;
     }
 
-    // 2. Detect Characters (Explicit Introduction)
-    const charMatch = line.match(characterIntroRegex);
-    if (charMatch) {
-        const name = charMatch[1];
-        if (!characterNames.has(name) && name.length < 10) {
-            characters.push({
-                id: generateId(),
-                name: name,
-                role: characters.length < 2 ? 'main' : 'other',
-                gender: '未知',
-                hairstyle: '未知',
-                hairColor: '未知',
-                clothing: '未知',
-                identity: '未知',
-                description: line,
-                visualStates: extractVisualStates(line),
-                sourceQuote: line // 记录来源行用于定位
-            });
-            characterNames.add(name);
-        }
-    }
-
-    // 3. Detect Characters (Dialogue inference)
-    const diaMatch = line.match(dialogueRegex);
-    if (diaMatch) {
-        const name = diaMatch[1];
-        if (!characterNames.has(name) && name.length < 8 && !['时间','地点','场景'].includes(name)) {
-             characters.push({
-                id: generateId(),
-                name: name,
-                role: 'other',
-                gender: '未知',
-                hairstyle: '未知',
-                hairColor: '未知',
-                clothing: '未知',
-                identity: '未知',
-                description: '从对话提取',
-                visualStates: [],
-                sourceQuote: line // 记录来源行用于定位
-            });
-            characterNames.add(name);
-        }
-    }
-
-    // 4. Collect Props/Lighting keywords
-    if (line.includes('道具') || line.includes('物品')) {
-        props.push({
-            id: generateId(),
-            name: line.split(/[：:]/)[1] || '未命名道具',
-            description: line,
-            usage: '剧情使用',
-            sourceQuote: line // 记录来源行用于定位
-        });
-    }
+    // 2. 识别角色 (包含对话中的非特定称呼)
+    // 修正正则：使用 Unicode 转义并对半角括号进行显式转义，防止部分环境下的 Unterminated group 报错
+    // \uff1a = ：, \uff08 = （, \uff09 = ）, \u3010 = 【, \u3011 = 】
+    const diaMatch = line.match(/^([^\s\uff1a:\uff08\(\u3010]{1,15})(?:\s*[\uff08\(\u3010]([^\uff09\)\u3011]+)[\uff09\)\u3011])?[\uff1a:]/);
     
-    if (line.includes('光效') || line.includes('灯光')) {
-        lighting.push({
-            id: generateId(),
-            type: '环境光',
-            color: '未知',
-            shape: '未知',
-            mood: '未知',
-            description: line,
-            sourceQuote: line // 记录来源行用于定位
-        });
+    if (diaMatch) {
+      const name = diaMatch[1].trim();
+      const detail = diaMatch[2] || "剧中实体";
+      
+      if (!characterNames.has(name) && !['场景', '地点', '时间', '剧情', '注'].includes(name)) {
+        // 判断类别
+        let category: any = 'human';
+        if (name.includes('怪物') || name.includes('尸') || name.includes('灵')) category = 'monster';
+        else if (genericKeywords.some(k => name.includes(k))) category = 'professional';
+        else if (name.includes('群') || name.includes('众')) category = 'crowd';
+
+        // 识别视觉状态
+        const vStates = [];
+        if (line.includes('Q版')) vStates.push('Q版形态');
+        if (line.includes('伤') || line.includes('血')) vStates.push('受损/负伤');
+
+        const newChar: Character = {
+          id: generateId(),
+          name: name,
+          role: 'other',
+          category: category,
+          gender: detail.includes('女') ? '女' : '男',
+          identity: detail,
+          pastBackground: '本地分析待确认',
+          presentStatus: '活跃于剧情中',
+          personality: '待定',
+          clothing: '未知',
+          description: line.substring(0, 100),
+          visualStates: vStates,
+          sourceQuote: line,
+          hairstyle: '', hairColor: ''
+        };
+        characters.push(newChar);
+        characterNames.set(name, newChar);
+      }
+      if (currentScene) sceneCharacterMap.get(currentScene.id)?.add(name);
     }
-
-    // Accumulate description for current scene
-    if (currentScene) {
-        if (line.match(/^\d+[.、]/)) {
-            currentScene.visualStates.push(line);
-        } else {
-            currentScene.description += line + "\n";
-            currentBuffer += line + "\n";
-        }
-    }
-  }
-
-  // Post-processing
-  if (currentScene) {
-     const remainingVisuals = extractVisualStates(currentBuffer);
-     remainingVisuals.forEach(v => {
-         if(!currentScene?.visualStates.includes(v)) currentScene?.visualStates.push(v);
-     });
-  }
-
-  // Basic Relationship Inference
-  const relationships: Relationship[] = [];
-  if (characters.length > 1) {
-      relationships.push({
-          source: characters[0].name,
-          target: characters[1].name,
-          type: '共演',
-          description: '出现在同一剧本中'
-      });
-  }
-
-  if (characters.length === 0) {
-      characters.push({ 
-          id: 'temp', name: '未识别角色', role: 'other', gender: '-', hairstyle: '-', hairColor: '-', clothing: '-', identity: '-', description: '本地模式依赖“角色：”或对话格式。', visualStates: [] 
-      });
   }
 
   return {
-    style: "本地分析模式",
+    style: "离线本地广义识别 V4.1",
     characters,
     scenes,
     props,
